@@ -2,72 +2,65 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
 	"os"
+	"path/filepath"
 )
 
-const configFileName = ".gatorconfig.json"
-
-func getConfigFilePath() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	configFile := homeDir + configFileName
-
-	return configFile, nil
-}
-
-func write(cfg Config) error {
-	jsonFile, err := getConfigFilePath()
-	if err != nil {
-		return err
-	}
-	file, err := os.Create(jsonFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	encoder := json.NewEncoder(file)
-	err = encoder.Encode(cfg)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+const configFileName = "/.gatorconfig.json"
 
 type Config struct {
-	Db_url            string `json:"db_url"`
-	Current_user_name string `json:"current_user_name"`
+	DBURL           string `json:"db_url"`
+	CurrentUserName string `json:"current_user_name"`
+}
+
+func (cfg *Config) SetUser(name string) error {
+	cfg.CurrentUserName = name
+	return write(*cfg)
 }
 
 func Read() (Config, error) {
-	configFile, err := getConfigFilePath()
+	fullPath, err := getConfigFilePath()
 	if err != nil {
-		fmt.Println(err)
 		return Config{}, err
 	}
 
-	file, err := os.Open(configFile)
+	file, err := os.Open(fullPath)
 	if err != nil {
 		return Config{}, err
 	}
 	defer file.Close()
 
-	byteVal, _ := io.ReadAll(file)
-
+	decoder := json.NewDecoder(file)
 	var cfg Config
-	err = json.Unmarshal(byteVal, &cfg)
+	err = decoder.Decode(&cfg)
 	if err != nil {
 		return Config{}, err
 	}
 	return cfg, nil
 }
 
-func (cfg *Config) SetUser(name string) error {
-	cfg.Current_user_name = name
-	err := write(*cfg)
+func getConfigFilePath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	fullPath := filepath.Join(home, configFileName)
+	return fullPath, nil
+}
+
+func write(cfg Config) error {
+	fullPath, err := getConfigFilePath()
+	if err != nil {
+		return err
+	}
+	file, err := os.Create(fullPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	err = encoder.Encode(cfg)
 	if err != nil {
 		return err
 	}
