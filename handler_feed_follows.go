@@ -9,11 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func handlerFollow(s *state, cmd command) error {
-	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("No current user: %w", err)
-	}
+func handlerFollow(s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("Usage: %s <feed_url>", cmd.Name)
 	}
@@ -33,15 +29,11 @@ func handlerFollow(s *state, cmd command) error {
 		return fmt.Errorf("Couldn't create a follow: %w", err)
 	}
 
-	printFeedFollow(result.FeedName, result.UserName)
+	printFeedFollow(result.UserName, result.FeedName)
 	return nil
 }
 
-func handlerListFeedFollows(s *state, cmd command) error {
-	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("No such user: %w", err)
-	}
+func handlerListFeedFollows(s *state, cmd command, user database.User) error {
 	feeds, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
 	if err != nil {
 		return fmt.Errorf("No feeds: %w", err)
@@ -56,6 +48,27 @@ func handlerListFeedFollows(s *state, cmd command) error {
 	for _, feed_follow := range feeds {
 		fmt.Printf("* %s\n", feed_follow.FeedName)
 	}
+
+	return nil
+}
+
+func handlerUnfollow(s *state, cmd command, user database.User) error {
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("Usage: %s <feed url>", cmd.Name)
+	}
+	feed, err := s.db.GetFeedByUrl(context.Background(), cmd.Args[0])
+	if err != nil {
+		return fmt.Errorf("No such feed: %w", err)
+	}
+	err = s.db.DeleteFeedFollows(context.Background(), database.DeleteFeedFollowsParams{
+		UserID: user.ID,
+		FeedID: feed.ID,
+	})
+
+	if err != nil {
+		return fmt.Errorf("Unable to delete: %w", err)
+	}
+	fmt.Println("Feed is no longer followed.")
 
 	return nil
 }
